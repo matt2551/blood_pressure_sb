@@ -35,6 +35,14 @@ export const router = createBrowserRouter([
           }),
       },
       {
+        path: "/edit-readings",
+        lazy: () =>
+          import("./pages/EditReadings/index.js").then((mod) => {
+            const Component = mod.default;
+            return { Component };
+          }),
+      },
+      {
         path: "*",
         Component: () => {
           const currentPath = window.location.pathname;
