@@ -21,6 +21,8 @@ export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
       date: new Date(r.reading_date).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
       }),
       Systolic: r.systolic,
       Diastolic: r.diastolic,
