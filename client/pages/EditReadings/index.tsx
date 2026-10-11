@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/lib/auth-context.js";
 import { useApiData } from "@/hooks/useApiData.js";
+import { useApi } from "@/hooks/useApi.js";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon";
@@ -12,6 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import EditReadingForm from "@/components/EditReadingForm/index.js";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 10;
 
@@ -66,6 +68,28 @@ export default function EditReadingsPage() {
   const handleCancel = useCallback(() => {
     setSelectedId(null);
   }, []);
+
+  const { run: deleteReading, loading: deleting } = useApi("DeleteReading");
+
+  const handleDelete = useCallback(
+    async (e: React.MouseEvent, readingId: string) => {
+      e.stopPropagation();
+      if (!window.confirm("Are you sure you want to delete this reading?")) return;
+      try {
+        await deleteReading({ readingId, userId: user!.id });
+        toast.success("Reading deleted");
+        if (selectedId === readingId) setSelectedId(null);
+        refetch();
+      } catch (error) {
+        const message =
+          error && typeof error === "object" && "message" in error
+            ? String((error as { message: unknown }).message)
+            : String(error);
+        toast.error("Delete failed: " + message);
+      }
+    },
+    [deleteReading, user, selectedId, refetch]
+  );
 
   if (loading) {
     return (
@@ -122,12 +146,13 @@ export default function EditReadingsPage() {
                     <TableHead>Arm</TableHead>
                     <TableHead>Position</TableHead>
                     <TableHead>Notes</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data?.readings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                         {debouncedSearch ? "No readings match your search" : "No readings yet"}
                       </TableCell>
                     </TableRow>
@@ -163,6 +188,17 @@ export default function EditReadingsPage() {
                           <TableCell className="capitalize">{reading.position ?? "—"}</TableCell>
                           <TableCell className="max-w-[120px] truncate text-xs text-muted-foreground">
                             {reading.notes || "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => handleDelete(e, reading.id)}
+                              disabled={deleting}
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                            >
+                              <Icon icon="trash-2" className="w-4 h-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
