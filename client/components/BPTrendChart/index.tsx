@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import {
   LineChart as RechartsLineChart,
   Line,
@@ -28,12 +28,7 @@ type BPTrendChartProps = {
 export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
   const chartData = useMemo(() => {
     return readings.map((r) => ({
-      date: new Date(r.reading_date).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      }),
+      ts: new Date(r.reading_date).getTime(),
       Systolic: r.systolic,
       Diastolic: r.diastolic,
       ...(r.pulse != null ? { Pulse: r.pulse } : {}),
@@ -41,6 +36,40 @@ export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
   }, [readings]);
 
   const hasPulse = readings.some((r) => r.pulse != null);
+
+  // Time-proportional x-axis domain (pad so single/edge points aren't clipped)
+  const { domain, spanMs } = useMemo(() => {
+    if (chartData.length === 0) return { domain: [0, 1] as [number, number], spanMs: 0 };
+    const times = chartData.map((d) => d.ts);
+    const min = Math.min(...times);
+    const max = Math.max(...times);
+    const span = max - min;
+    const pad = span > 0 ? span * 0.03 : 12 * 60 * 60 * 1000;
+    return { domain: [min - pad, max + pad] as [number, number], spanMs: span };
+  }, [chartData]);
+
+  const formatTick = useCallback(
+    (ts: number) => {
+      const d = new Date(ts);
+      // Under ~2 days of data: show time too; otherwise just the date
+      return spanMs < 2 * 24 * 60 * 60 * 1000
+        ? d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric" })
+        : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    },
+    [spanMs]
+  );
+
+  const formatTooltipLabel = useCallback(
+    (ts: number) =>
+      new Date(ts).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    []
+  );
 
   const avgSystolic = useMemo(() => {
     if (readings.length === 0) return 0;
@@ -67,7 +96,13 @@ export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
             <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis
-                dataKey="date"
+                dataKey="ts"
+                type="number"
+                scale="time"
+                domain={domain}
+                tickFormatter={formatTick}
+                tickCount={6}
+                minTickGap={24}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
@@ -75,6 +110,7 @@ export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
               />
               <YAxis tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 11 }} />
               <Tooltip
+                labelFormatter={(label) => formatTooltipLabel(Number(label))}
                 contentStyle={{
                   borderRadius: "8px",
                   border: "1px solid var(--border)",
