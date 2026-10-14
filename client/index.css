@@ -129,3 +129,36 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Printing: let content flow across pages instead of being clipped by the
+   app's full-height scroll containers, and keep chart/badge colors. */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  html,
+  body,
+  #root,
+  #root * {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  /* Recharts needs a definite height to render its SVG */
+  #root .recharts-responsive-container {
+    height: 256px !important;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+}

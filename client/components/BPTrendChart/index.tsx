@@ -23,9 +23,13 @@ type ChartReading = {
 type BPTrendChartProps = {
   readings: ChartReading[];
   loading?: boolean;
+  /** Overrides the default "Last N readings" caption */
+  subtitle?: string;
+  /** Disable for print so lines are fully drawn when the page is captured */
+  animate?: boolean;
 };
 
-export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
+export default function BPTrendChart({ readings, loading, subtitle, animate = true }: BPTrendChartProps) {
   const chartData = useMemo(() => {
     return readings.map((r) => ({
       ts: new Date(r.reading_date).getTime(),
@@ -88,7 +92,7 @@ export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
         <h2 className="text-lg font-semibold">Blood Pressure Trend</h2>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        Last {readings.length} readings
+        {subtitle ?? `Last ${readings.length} readings`}
       </p>
       <div className={`h-64 ${loading ? "opacity-70" : ""}`}>
         {chartData.length > 0 ? (
@@ -154,6 +158,7 @@ export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
                 type="monotone"
                 stroke="var(--chart-1)"
                 strokeWidth={2}
+                isAnimationActive={animate}
                 dot={{ fill: "var(--chart-1)", strokeWidth: 2, r: 2 }}
                 activeDot={{ fill: "var(--chart-1)", strokeWidth: 2, r: 4 }}
               />
@@ -162,6 +167,7 @@ export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
                 type="monotone"
                 stroke="var(--chart-2)"
                 strokeWidth={2}
+                isAnimationActive={animate}
                 dot={{ fill: "var(--chart-2)", strokeWidth: 2, r: 2 }}
                 activeDot={{ fill: "var(--chart-2)", strokeWidth: 2, r: 4 }}
               />
@@ -171,6 +177,7 @@ export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
                   type="monotone"
                   stroke="var(--chart-3)"
                   strokeWidth={2}
+                  isAnimationActive={animate}
                   dot={{ fill: "var(--chart-3)", strokeWidth: 2, r: 2 }}
                   activeDot={{ fill: "var(--chart-3)", strokeWidth: 2, r: 4 }}
                 />
@@ -180,7 +187,7 @@ export default function BPTrendChart({ readings, loading }: BPTrendChartProps) {
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
             <Icon icon="chart-no-axes-column" className="w-8 h-8" />
-            <p className="text-sm">No readings yet. Add your first one!</p>
+            <p className="text-sm">{subtitle ? "No readings in this period" : "No readings yet. Add your first one!"}</p>
           </div>
         )}
       </div>

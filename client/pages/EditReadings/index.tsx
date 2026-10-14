@@ -14,15 +14,9 @@ import {
 } from "@/components/ui/table";
 import EditReadingForm from "@/components/EditReadingForm/index.js";
 import { toast } from "sonner";
+import { getBPCategory } from "@/lib/bp-category.js";
 
 const PAGE_SIZE = 10;
-
-function getBPCategory(sys: number, dia: number) {
-  if (sys < 120 && dia < 80) return { label: "Normal", className: "bg-emerald-100 text-emerald-800" };
-  if (sys < 130 && dia < 80) return { label: "Elevated", className: "bg-yellow-100 text-yellow-800" };
-  if (sys < 140 || dia < 90) return { label: "High Stage 1", className: "bg-orange-100 text-orange-800" };
-  return { label: "High Stage 2", className: "bg-red-100 text-red-800" };
-}
 
 export default function EditReadingsPage() {
   const { user, isAuthenticated } = useAuth();

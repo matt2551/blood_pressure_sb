@@ -14,9 +14,9 @@ function AppLayout() {
   const showSidebar = isAuthenticated && !isAuthPage;
 
   return (
-    <div className="flex h-full w-full">
+    <div className="flex h-full w-full print:block print:h-auto">
       {showSidebar && <AppSidebar />}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden print:overflow-visible">
         <Suspense fallback={null}>
           <Outlet />
         </Suspense>

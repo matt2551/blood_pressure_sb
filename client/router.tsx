@@ -43,6 +43,14 @@ export const router = createBrowserRouter([
           }),
       },
       {
+        path: "/report",
+        lazy: () =>
+          import("./pages/Report/index.js").then((mod) => {
+            const Component = mod.default;
+            return { Component };
+          }),
+      },
+      {
         path: "*",
         Component: () => {
           const currentPath = window.location.pathname;

@@ -14,6 +14,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { icon: "layout-dashboard", label: "Dashboard", path: "/" },
   { icon: "pencil-line", label: "Edit Readings", path: "/edit-readings" },
+  { icon: "file-text", label: "Report", path: "/report" },
 ];
 
 export default function AppSidebar() {
@@ -27,7 +28,7 @@ export default function AppSidebar() {
   }, [logout, navigate]);
 
   return (
-    <div className="flex flex-col h-full w-[220px] bg-background border-r">
+    <div className="flex flex-col h-full w-[220px] bg-background border-r print:hidden">
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-4 py-5 border-b">
         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
