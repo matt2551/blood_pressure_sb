@@ -1,51 +1,26 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/lib/auth-context.js";
 import { useApiData } from "@/hooks/useApiData.js";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import BPTrendChart from "@/components/BPTrendChart/index.js";
-import ReportControls, { type ReportPreset } from "@/components/ReportControls/index.js";
+import ReportControls from "@/components/ReportControls/index.js";
 import ReportSummary from "@/components/ReportSummary/index.js";
 import ReportReadingsTable from "@/components/ReportReadingsTable/index.js";
-
-type Range = { from: string | null; to: string | null };
-
-const startOfDay = (d: Date) => {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-};
-const endOfDay = (d: Date) => {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
-};
-
-/** "Last N days" means today plus the previous N-1 days, in local time. */
-function rangeForPreset(preset: Exclude<ReportPreset, "custom">): Range {
-  if (preset === "all") return { from: null, to: null };
-  const days = Number(preset);
-  const from = startOfDay(new Date());
-  from.setDate(from.getDate() - (days - 1));
-  return { from: from.toISOString(), to: endOfDay(new Date()).toISOString() };
-}
-
-const fmt = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-function describeRange(range: Range): string {
-  if (!range.from && !range.to) return "All time";
-  if (range.from && range.to) return `${fmt(range.from)} – ${fmt(range.to)}`;
-  if (range.from) return `Since ${fmt(range.from)}`;
-  return `Through ${fmt(range.to!)}`;
-}
+import {
+  DEFAULT_PRESET,
+  describeRange,
+  rangeForPreset,
+  type DateRange,
+  type RangePreset,
+} from "@/lib/date-range.js";
 
 export default function ReportPage() {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [preset, setPreset] = useState<ReportPreset>("30");
-  const [range, setRange] = useState<Range>(() => rangeForPreset("30"));
+  const [preset, setPreset] = useState<RangePreset>(DEFAULT_PRESET);
+  const [range, setRange] = useState<DateRange>(() => rangeForPreset(DEFAULT_PRESET));
 
   useEffect(() => {
     if (!isAuthenticated) navigate("/login", { replace: true });
@@ -57,26 +32,12 @@ export default function ReportPage() {
     { enabled: !!user }
   );
 
-  const handlePresetChange = useCallback((p: Exclude<ReportPreset, "custom">) => {
+  const handleRangeChange = useCallback((p: RangePreset, r: DateRange) => {
     setPreset(p);
-    setRange(rangeForPreset(p));
-  }, []);
-
-  // The picker returns midnight-based ISO strings; widen "to" to the end of that day
-  const handlePickerChange = useCallback((value: { from: string; to: string }) => {
-    setPreset("custom");
-    setRange({
-      from: value.from ? startOfDay(new Date(value.from)).toISOString() : null,
-      to: value.to ? endOfDay(new Date(value.to)).toISOString() : null,
-    });
+    setRange(r);
   }, []);
 
   const handlePrint = useCallback(() => window.print(), []);
-
-  const pickerValue = useMemo(
-    () => ({ from: range.from ?? undefined, to: range.to ?? undefined }),
-    [range]
-  );
   const rangeLabel = describeRange(range);
   const readings = data?.readings ?? [];
 
@@ -87,9 +48,8 @@ export default function ReportPage() {
       <div className="max-w-5xl mx-auto flex flex-col gap-6 w-full print:max-w-none print:gap-4">
         <ReportControls
           preset={preset}
-          pickerValue={pickerValue}
-          onPresetChange={handlePresetChange}
-          onPickerChange={handlePickerChange}
+          range={range}
+          onRangeChange={handleRangeChange}
           onPrint={handlePrint}
           printDisabled={loading || isError}
           fetching={fetching && !loading}

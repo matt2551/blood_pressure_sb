@@ -46,6 +46,8 @@ export default function EditReadingsPage() {
     {
       userId: user.id,
       search: debouncedSearch || null,
+      fromDate: null,
+      toDate: null,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
     }

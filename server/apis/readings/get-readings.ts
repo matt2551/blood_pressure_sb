@@ -19,13 +19,16 @@ export type Reading = z.infer<typeof ReadingSchema>;
 
 export default api({
   name: "GetReadings",
-  description: "Fetches paginated blood pressure readings for a user",
+  description: "Fetches paginated readings, filtered by search and date",
   integrations: {
     databricks_free: databricks(DATABRICKS_ID),
   },
   input: z.object({
     userId: z.string(),
     search: z.string().nullable(),
+    // ISO timestamps; null means no bound on that side
+    fromDate: z.string().nullable(),
+    toDate: z.string().nullable(),
     limit: z.number(),
     offset: z.number(),
   }),
@@ -33,33 +36,47 @@ export default api({
     readings: z.array(ReadingSchema),
     total: z.coerce.number(),
   }),
-  async run(ctx, { userId, search, limit, offset }) {
-    const countSchema = z.object({ cnt: z.coerce.number() });
-    const hasSearch = search != null && search.trim().length > 0;
+  async run(ctx, { userId, search, fromDate, toDate, limit, offset }) {
+    const conditions = ["user_id = :PARAM_1"];
+    const params: string[] = [userId];
 
-    // Count query
-    const countSql = hasSearch
-      ? "SELECT COUNT(*) as cnt FROM bp_readings WHERE user_id = :PARAM_1 AND (LOWER(notes) LIKE LOWER(:PARAM_2) OR LOWER(arm) LIKE LOWER(:PARAM_2) OR LOWER(position) LIKE LOWER(:PARAM_2))"
-      : "SELECT COUNT(*) as cnt FROM bp_readings WHERE user_id = :PARAM_1";
-    const countParams = hasSearch ? [userId, `%${search!.trim()}%`] : [userId];
+    const term = search?.trim();
+    if (term) {
+      params.push(`%${term}%`);
+      const p = `:PARAM_${params.length}`;
+      conditions.push(
+        `(LOWER(notes) LIKE LOWER(${p}) OR LOWER(arm) LIKE LOWER(${p}) OR LOWER(position) LIKE LOWER(${p}))`
+      );
+    }
+    if (fromDate) {
+      params.push(fromDate);
+      conditions.push(`reading_date >= CAST(:PARAM_${params.length} AS TIMESTAMP)`);
+    }
+    if (toDate) {
+      params.push(toDate);
+      conditions.push(`reading_date <= CAST(:PARAM_${params.length} AS TIMESTAMP)`);
+    }
+    const where = conditions.join(" AND ");
 
-    // Data query — embed limit/offset directly since Databricks may not support parameterized LIMIT
+    // Databricks doesn't accept parameterized LIMIT/OFFSET, so clamp and inline them
     const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
     const safeOffset = Math.max(0, Math.floor(offset));
 
-    const dataSql = hasSearch
-      ? `SELECT id, user_id, systolic, diastolic, pulse, arm, position, notes, reading_date, created_at
-         FROM bp_readings WHERE user_id = :PARAM_1
-         AND (LOWER(notes) LIKE LOWER(:PARAM_2) OR LOWER(arm) LIKE LOWER(:PARAM_2) OR LOWER(position) LIKE LOWER(:PARAM_2))
-         ORDER BY reading_date DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`
-      : `SELECT id, user_id, systolic, diastolic, pulse, arm, position, notes, reading_date, created_at
-         FROM bp_readings WHERE user_id = :PARAM_1
-         ORDER BY reading_date DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`;
-    const dataParams = hasSearch ? [userId, `%${search!.trim()}%`] : [userId];
-
     const [countResult, readings] = await Promise.all([
-      ctx.integrations.databricks_free.query(countSql, countSchema, countParams, { label: "Count readings" }),
-      ctx.integrations.databricks_free.query(dataSql, ReadingSchema, dataParams, { label: "Fetch readings page" }),
+      ctx.integrations.databricks_free.query(
+        `SELECT COUNT(*) as cnt FROM bp_readings WHERE ${where}`,
+        z.object({ cnt: z.coerce.number() }),
+        params,
+        { label: "Count readings" }
+      ),
+      ctx.integrations.databricks_free.query(
+        `SELECT id, user_id, systolic, diastolic, pulse, arm, position, notes, reading_date, created_at
+         FROM bp_readings WHERE ${where}
+         ORDER BY reading_date DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`,
+        ReadingSchema,
+        params,
+        { label: "Fetch readings page" }
+      ),
     ]);
 
     return {

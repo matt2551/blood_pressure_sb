@@ -21,6 +21,10 @@ import { getBPCategory } from "@/lib/bp-category.js";
 type ReadingsTableProps = {
   userId: string;
   refreshKey: number;
+  fromDate: string | null;
+  toDate: string | null;
+  /** Called after a reading is deleted so siblings (e.g. the chart) can refresh */
+  onDeleted?: () => void;
 };
 
 const PAGE_SIZE = 10;
@@ -81,17 +85,16 @@ const ReadingRow = memo(function ReadingRow({
   );
 });
 
-export default function ReadingsTable({ userId, refreshKey }: ReadingsTableProps) {
-  const [search, setSearch] = useState("");
+export default function ReadingsTable({ userId, refreshKey, fromDate, toDate, onDeleted }: ReadingsTableProps) {
+  const [localSearch, setLocalSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalSearch(e.target.value);
-  }, []);
-
-  const [localSearch, setLocalSearch] = useState("");
+  // A new date range starts back at the first page
+  useEffect(() => {
+    setPage(0);
+  }, [fromDate, toDate]);
 
   useEffect(() => {
     clearTimeout(timerRef.current);
@@ -107,6 +110,8 @@ export default function ReadingsTable({ userId, refreshKey }: ReadingsTableProps
     {
       userId,
       search: debouncedSearch || null,
+      fromDate,
+      toDate,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
     }
@@ -127,6 +132,7 @@ export default function ReadingsTable({ userId, refreshKey }: ReadingsTableProps
         await deleteReading({ readingId, userId });
         toast.success("Reading deleted");
         refetch();
+        onDeleted?.();
       } catch (error) {
         const message =
           error && typeof error === "object" && "message" in error
@@ -135,7 +141,7 @@ export default function ReadingsTable({ userId, refreshKey }: ReadingsTableProps
         toast.error("Delete failed: " + message);
       }
     },
-    [deleteReading, userId, refetch]
+    [deleteReading, userId, refetch, onDeleted]
   );
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
@@ -176,7 +182,7 @@ export default function ReadingsTable({ userId, refreshKey }: ReadingsTableProps
           <h2 className="text-lg font-semibold">Reading History</h2>
           {data && (
             <span className="text-xs text-muted-foreground">
-              ({data.total} total)
+              ({data.total} in range)
             </span>
           )}
         </div>
@@ -212,7 +218,7 @@ export default function ReadingsTable({ userId, refreshKey }: ReadingsTableProps
             {data?.readings.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                  {debouncedSearch ? "No readings match your search" : "No readings yet"}
+                  {debouncedSearch ? "No readings match your search" : "No readings in this period"}
                 </TableCell>
               </TableRow>
             ) : (
